@@ -168,17 +168,6 @@ A smart music player that analyzes your mood through facial expressions and play
    cv2.VideoCapture(1)  # or 2, 3, etc.
    ```
 
-## Getting Help
-
-If you encounter any issues not covered in this guide:
-
-1. Check the [Issues](https://github.com/MrPrince419/mood-based-music-player/issues) page
-2. Create a new issue with:
-   - Error message
-   - Steps to reproduce
-   - System information
-   - Log files (if available)
-
 ## Contributing
 
 1. Fork the repository
