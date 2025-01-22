@@ -28,24 +28,37 @@ An intelligent music player that adapts to your mood using facial recognition an
 - Favorite tracks by mood
 - Custom mood-song mappings
 
-## Getting Started
+## Installation
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/MrPrince419/mood-based-music-player.git
+   cd mood-based-music-player
+   ```
 
-2. Configure your environment:
-```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+2. Create a virtual environment (recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-3. Run the application:
-```bash
-python mood_based_music_player.py
-```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Usage
+
+1. Make sure your webcam is connected and working
+2. Run the application:
+   ```bash
+   python mood_based_music_player.py
+   ```
+3. Allow camera access when prompted
+4. The app will:
+   - Detect your facial expressions
+   - Analyze your mood
+   - Play music that matches your emotional state
 
 ## Requirements
 
@@ -177,3 +190,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Librosa for audio analysis
 - Pygame for audio playback
 - NumPy for numerical computations
+
+## Contact
+
+MrPrince419 - [@MrPrince419](https://github.com/MrPrince419)
+
+Project Link: [https://github.com/MrPrince419/mood-based-music-player](https://github.com/MrPrince419/mood-based-music-player)
