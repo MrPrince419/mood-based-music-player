@@ -1,8 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useMusic } from '../context/MusicContext';
 
 const Player: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const audioContext = useRef<AudioContext | null>(null);
+  const audioElement = useRef<HTMLAudioElement | null>(null);
+  const { currentSong } = useMusic();
+
+  useEffect(() => {
+    // Initialize AudioContext on user interaction
+    const initializeAudio = () => {
+      if (!audioContext.current) {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          audioContext.current = new AudioContextClass();
+        } catch (error) {
+          console.error('Failed to create AudioContext:', error);
+        }
+      }
+    };
+
+    // Add listener for user interaction
+    document.addEventListener('click', initializeAudio, { once: true });
+
+    return () => {
+      document.removeEventListener('click', initializeAudio);
+      if (audioContext.current) {
+        audioContext.current.close();
+      }
+    };
+  }, []);
+
+  const togglePlay = async () => {
+    if (!audioContext.current) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioContext.current = new AudioContextClass();
+      } catch (error) {
+        console.error('Failed to create AudioContext:', error);
+        return;
+      }
+    }
+
+    if (audioContext.current.state === 'suspended') {
+      await audioContext.current.resume();
+    }
+
+    setIsPlaying(!isPlaying);
+  };
 
   return (
     <div className="space-y-4">
@@ -10,19 +56,31 @@ const Player: React.FC = () => {
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg animate-pulse"></div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">No song playing</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Select a mood to start playing</p>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+              {currentSong || 'No song playing'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {currentSong ? 'Now playing' : 'Select a mood to start playing'}
+            </p>
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <button className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">
+          <button 
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
+            disabled={!currentSong}
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <button 
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="w-12 h-12 flex items-center justify-center bg-gradient-to-r from-purple-500 to-pink-500 rounded-full shadow-lg hover:from-purple-600 hover:to-pink-600 transform transition-transform hover:scale-105"
+            onClick={togglePlay}
+            disabled={!currentSong}
+            className={`w-12 h-12 flex items-center justify-center rounded-full shadow-lg transform transition-transform hover:scale-105 ${
+              currentSong 
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600' 
+                : 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
+            }`}
           >
             {isPlaying ? (
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,7 +93,10 @@ const Player: React.FC = () => {
               </svg>
             )}
           </button>
-          <button className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white">
+          <button 
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
+            disabled={!currentSong}
+          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
