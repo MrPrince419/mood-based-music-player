@@ -1,7 +1,7 @@
 // Environment Configuration
 const CONFIG = {
-    ENABLE_FACE_DETECTION: process.env.ENABLE_FACE_DETECTION === 'true',
-    MAX_UPLOAD_SIZE: parseInt(process.env.MAX_UPLOAD_SIZE || '50000000'),
+    ENABLE_FACE_DETECTION: true, // Default to true if env var not available
+    MAX_UPLOAD_SIZE: 50000000,   // 50MB default
     MOOD_CONFIDENCE_THRESHOLD: 0.7,
     MOOD_UPDATE_INTERVAL: 1000,
     MAX_MOOD_HISTORY: 10
@@ -135,44 +135,63 @@ class MusicPlayer {
     }
 
     setupEventListeners() {
-        // File upload handling
-        const uploadBtn = document.getElementById('uploadBtn');
-        const musicUpload = document.getElementById('musicUpload');
-        const uploadArea = document.querySelector('.bg-gray-700');
-
-        uploadBtn.onclick = () => musicUpload.click();
-        musicUpload.onchange = (e) => this.handleFileUpload(e.target.files);
-
-        // Drag and drop
-        uploadArea.ondragover = (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('bg-purple-600');
-        };
-        uploadArea.ondragleave = () => uploadArea.classList.remove('bg-purple-600');
-        uploadArea.ondrop = (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('bg-purple-600');
-            this.handleFileUpload(e.dataTransfer.files);
-        };
-
         // Playback controls
-        document.getElementById('playPauseBtn').onclick = () => this.togglePlayPause();
-        document.getElementById('nextBtn').onclick = () => this.playNext();
-        document.getElementById('prevBtn').onclick = () => this.playPrevious();
-        document.getElementById('shuffleBtn').onclick = () => this.toggleShuffle();
-        document.getElementById('repeatBtn').onclick = () => this.toggleRepeat();
+        document.getElementById('playPause').addEventListener('click', () => this.togglePlayPause());
+        document.getElementById('next').addEventListener('click', () => this.playNext());
+        document.getElementById('previous').addEventListener('click', () => this.playPrevious());
+        document.getElementById('shuffle').addEventListener('click', () => this.toggleShuffle());
+        document.getElementById('repeat').addEventListener('click', () => this.toggleRepeat());
 
         // Progress bar
-        const progressContainer = document.getElementById('progressContainer');
-        progressContainer.onclick = (e) => {
-            const rect = progressContainer.getBoundingClientRect();
-            const percent = (e.clientX - rect.left) / rect.width;
-            this.audioPlayer.currentTime = this.audioPlayer.duration * percent;
-        };
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+            progressBar.addEventListener('click', (e) => {
+                const rect = progressBar.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                if (this.audioPlayer) {
+                    this.audioPlayer.currentTime = pos * this.audioPlayer.duration;
+                }
+            });
+        }
 
         // Audio player events
-        this.audioPlayer.ontimeupdate = () => this.updateProgress();
-        this.audioPlayer.onended = () => this.handleSongEnd();
+        if (this.audioPlayer) {
+            this.audioPlayer.addEventListener('timeupdate', () => this.updateProgress());
+            this.audioPlayer.addEventListener('ended', () => this.handleSongEnd());
+        }
+
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    this.handleFileUpload(Array.from(files));
+                }
+            });
+        }
+
+        if (dropZone) {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('bg-gray-700');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('bg-gray-700');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('bg-gray-700');
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    this.handleFileUpload(Array.from(files));
+                }
+            });
+        }
     }
 
     async handleFileUpload(files) {
@@ -289,7 +308,7 @@ class MusicPlayer {
     }
 
     updatePlayPauseButton() {
-        const btn = document.getElementById('playPauseBtn');
+        const btn = document.getElementById('playPause');
         btn.innerHTML = `<i class="fas fa-${this.isPlaying ? 'pause' : 'play'}"></i>`;
     }
 
@@ -325,7 +344,7 @@ class MusicPlayer {
 
     toggleShuffle() {
         this.isShuffled = !this.isShuffled;
-        const btn = document.getElementById('shuffleBtn');
+        const btn = document.getElementById('shuffle');
         btn.classList.toggle('text-purple-400');
     }
 
@@ -333,7 +352,7 @@ class MusicPlayer {
         const modes = ['none', 'one', 'all'];
         this.repeatMode = modes[(modes.indexOf(this.repeatMode) + 1) % modes.length];
         
-        const btn = document.getElementById('repeatBtn');
+        const btn = document.getElementById('repeat');
         btn.classList.toggle('text-purple-400', this.repeatMode !== 'none');
     }
 
