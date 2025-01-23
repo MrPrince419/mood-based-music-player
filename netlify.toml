@@ -1,30 +1,10 @@
 [build]
-<<<<<<< HEAD
-  command = "pip install -r requirements.txt"
-  publish = "."
-  functions = "netlify/functions"
+  command = "npm run build"
+  publish = "dist"
 
 [build.environment]
-  PYTHON_VERSION = "3.10"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-=======
-  publish = "."
-  command = "npm run build"
-
-[context.production]
-  environment = { NODE_VERSION = "16", NPM_VERSION = "8" }
-
-[context.deploy-preview]
-  command = "npm run build:preview"
-  environment = { NODE_ENV = "preview" }
-
-[context.branch-deploy]
-  command = "npm run build:branch"
-  environment = { NODE_ENV = "development" }
+  NODE_VERSION = "18"
+  NPM_VERSION = "9"
 
 [[redirects]]
   from = "/*"
@@ -34,14 +14,13 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:;"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
-    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:;"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    Access-Control-Allow-Origin = "*"
 
 [dev]
   framework = "#custom"
@@ -50,4 +29,3 @@
   port = 8888
   publish = "."
   autoLaunch = true
->>>>>>> 9a5ed2ffd0a98286bdeca11872af36b6f1ad1c59
