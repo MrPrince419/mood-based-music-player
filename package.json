@@ -1,29 +1,21 @@
 {
   "name": "mood-music-player",
   "version": "1.0.0",
-  "description": "A web-based music player that adapts to your mood using facial expressions",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [
-    "music",
-    "mood",
-    "facial-recognition",
-    "web-app"
-  ],
-  "author": "MrPrince419",
-  "license": "MIT",
   "dependencies": {
-    "@tensorflow/tfjs": "^4.15.0",
-    "@tensorflow-models/face-detection": "^1.0.2"
+    "@tensorflow/tfjs": "^4.16.0",
+    "@tensorflow-models/face-detection": "^1.0.2",
+    "@tensorflow-models/face-landmarks-detection": "^1.0.5",
+    "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
-    "tailwindcss": "^3.4.0",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32"
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "vite": "^5.0.12"
   }
 }
