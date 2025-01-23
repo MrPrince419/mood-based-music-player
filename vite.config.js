@@ -4,11 +4,15 @@ export default {
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      external: [
-        '@tensorflow/tfjs',
-        '@tensorflow-models/face-detection',
-        '@tensorflow-models/face-landmarks-detection'
-      ]
+      output: {
+        manualChunks: {
+          tensorflow: [
+            '@tensorflow/tfjs',
+            '@tensorflow-models/face-detection',
+            '@tensorflow-models/face-landmarks-detection'
+          ]
+        }
+      }
     }
   },
   optimizeDeps: {
