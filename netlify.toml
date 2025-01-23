@@ -1,28 +1,39 @@
 [build]
   publish = "."
-  command = ""
+  command = "npm run build"
 
 [context.production]
-  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+  environment = { NODE_VERSION = "16", NPM_VERSION = "8" }
 
 [context.deploy-preview]
-  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+  command = "npm run build:preview"
+  environment = { NODE_ENV = "preview" }
 
 [context.branch-deploy]
-  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+  command = "npm run build:branch"
+  environment = { NODE_ENV = "development" }
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Force HTTPS and security headers
 [[headers]]
   for = "/*"
   [headers.values]
-    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
-    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' blob: https:; worker-src 'self' blob:;"
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: https:; media-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:;"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
     Access-Control-Allow-Origin = "*"
+
+[dev]
+  framework = "#custom"
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  publish = "."
+  autoLaunch = true
