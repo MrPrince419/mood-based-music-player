@@ -1,0 +1,21 @@
+{
+  "name": "mood-music-player",
+  "version": "1.0.0",
+  "description": "A web-based music player that adapts to your mood using facial expressions",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve",
+    "build": "echo 'No build step required - static files'"
+  },
+  "keywords": [
+    "music",
+    "mood",
+    "facial-recognition",
+    "web-app"
+  ],
+  "author": "MrPrince419",
+  "license": "MIT",
+  "dependencies": {
+    "serve": "^14.0.0"
+  }
+}

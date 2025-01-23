@@ -1,6 +1,75 @@
 # Mood Based Music Player
 
-A smart music player that analyzes your mood through facial expressions and plays music that matches your emotional state.
+A web-based music player that analyzes your mood through facial expressions and plays music that matches your emotional state. Now available as a web application!
+
+## Web Version
+
+The web version runs directly in your browser - no installation required!
+
+### Features
+- Real-time mood detection using your webcam
+- Browser-based music playback
+- Drag-and-drop music upload
+- Automatic mood-based playlist organization
+- Works on any device with a webcam and modern browser
+
+### Using the Web Version
+1. Visit [https://mrprince419-mood-music-player.netlify.app](https://mrprince419-mood-music-player.netlify.app)
+2. Allow camera access when prompted
+3. Upload your music files
+4. Face the camera and enjoy mood-based music!
+
+### Web Version Troubleshooting
+
+#### Camera Issues
+1. **Camera Not Working:**
+   - Ensure you've allowed camera permissions in your browser
+   - Try refreshing the page
+   - Check if other apps are using your camera
+   - Verify your webcam works in other applications
+
+2. **Permission Denied:**
+   - Click the camera icon in your browser's address bar
+   - Select "Allow" for camera access
+   - Try using a different browser (Chrome, Firefox, Edge)
+
+#### Music Playback
+1. **Can't Upload Music:**
+   - Ensure files are in MP3 format
+   - Check file size (max 50MB per file)
+   - Try uploading fewer files at once
+   - Clear browser cache and try again
+
+2. **No Sound:**
+   - Check browser volume
+   - Verify system audio is working
+   - Try playing a YouTube video to test audio
+   - Check if audio is muted in the player
+
+#### Browser Compatibility
+- **Recommended Browsers:**
+  - Chrome 80+
+  - Firefox 76+
+  - Edge 80+
+  - Safari 13+
+
+- **If Using Unsupported Browser:**
+  - Update to latest version
+  - Try a different supported browser
+  - Clear browser cache and cookies
+
+#### Performance Issues
+1. **Slow or Laggy:**
+   - Close unnecessary browser tabs
+   - Refresh the page
+   - Clear browser cache
+   - Check internet connection
+   - Reduce number of uploaded songs
+
+2. **High CPU Usage:**
+   - Close other resource-intensive tabs
+   - Reduce the number of active browser extensions
+   - Try using hardware acceleration if available
 
 ## Features
 
@@ -25,61 +94,26 @@ A smart music player that analyzes your mood through facial expressions and play
 ## Quick Start Guide
 
 ### Prerequisites
-- Python 3.8 or higher
 - Webcam (built-in or external)
 - Music files (MP3 or WAV format)
-- Windows, macOS, or Linux operating system
+- Modern browser (Chrome, Firefox, Edge, Safari)
 
-### Installation
+### Using the App
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/MrPrince419/mood-based-music-player.git
-   cd mood-based-music-player
-   ```
+1. **Visit the Web App:**
+   - Go to [https://mrprince419-mood-music-player.netlify.app](https://mrprince419-mood-music-player.netlify.app)
 
-2. **Set up Python environment:**
-   ```bash
-   # Create virtual environment
-   python -m venv venv
+2. **Allow Camera Access:**
+   - When prompted, allow access to your webcam
 
-   # Activate virtual environment
-   # On Windows:
-   venv\Scripts\activate
-   # On macOS/Linux:
-   source venv/bin/activate
-   ```
+3. **Upload Music:**
+   - Drag and drop music files
+   - Or click the upload button
 
-3. **Install dependencies:**
-   ```bash
-   # Update pip to latest version
-   python -m pip install --upgrade pip
-
-   # Install required packages
-   pip install -r requirements.txt
-   ```
-
-### Running the App
-
-1. **Prepare your music:**
-   - Place your music files in a directory
-   - Supported formats: MP3, WAV
-
-2. **Start the application:**
-   ```bash
-   python "mood based music player.py"
-   ```
-
-3. **Initial setup:**
-   - Allow camera access when prompted
-   - Select your music directory
-   - Wait for initial music analysis to complete
-
-4. **Using the player:**
+4. **Start Listening:**
    - Face the camera
-   - The app will detect your mood
-   - Music matching your emotional state will play
-   - Playlist updates as your mood changes
+   - Your mood will be detected automatically
+   - Music matching your mood will play
 
 ## Troubleshooting Guide
 
@@ -89,36 +123,11 @@ A smart music player that analyzes your mood through facial expressions and play
    - Check if webcam is properly connected
    - Ensure no other apps are using the camera
    - Verify camera permissions in system settings
-   ```bash
-   # Test camera in Python
-   python -c "import cv2; print(cv2.VideoCapture(0).isOpened())"
-   ```
 
 2. **Permission Denied:**
    - Grant camera access in system settings
    - Run the app with appropriate permissions
    - Try closing other apps using the camera
-
-### Installation Problems
-
-1. **Package Installation Fails:**
-   ```bash
-   # Try updating pip
-   python -m pip install --upgrade pip
-
-   # Install packages one by one
-   pip install numpy
-   pip install opencv-python
-   pip install pygame
-   ```
-
-2. **Virtual Environment Issues:**
-   ```bash
-   # Remove and recreate environment
-   deactivate
-   rm -rf venv  # On Windows: rmdir /s /q venv
-   python -m venv venv
-   ```
 
 ### Music Playback Problems
 
@@ -126,10 +135,6 @@ A smart music player that analyzes your mood through facial expressions and play
    - Check system volume
    - Verify audio device selection
    - Ensure music files are not corrupted
-   ```bash
-   # Test audio playback
-   python -c "import pygame; pygame.mixer.init(); pygame.mixer.music.load('path/to/music.mp3')"
-   ```
 
 2. **File Format Errors:**
    - Convert files to supported formats

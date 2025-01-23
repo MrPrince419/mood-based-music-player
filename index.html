@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood Music Player</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-gray-800 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-bold mb-4 text-gradient bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                Mood Music Player
+            </h1>
+            <p class="text-gray-400">Let your emotions guide your music</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Left Column: Webcam and Mood -->
+            <div class="space-y-8">
+                <!-- Webcam Feed with Overlay -->
+                <div class="relative rounded-lg overflow-hidden shadow-xl bg-gray-800 p-4">
+                    <video id="webcam" class="w-full rounded-lg" autoplay playsinline></video>
+                    <canvas id="overlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+                    
+                    <!-- Mood Display -->
+                    <div class="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-lg">Current Mood:</span>
+                            <span id="moodDisplay" class="text-xl font-bold text-green-400">Detecting...</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div id="moodConfidence" class="bg-green-400 rounded-full h-2" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mood History -->
+                <div class="bg-gray-800 rounded-lg p-6 shadow-xl">
+                    <h3 class="text-xl mb-4 font-semibold">Mood History</h3>
+                    <div id="moodHistory" class="space-y-2">
+                        <!-- Mood history items will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Music Player -->
+            <div class="space-y-8">
+                <!-- Now Playing -->
+                <div class="bg-gray-800 rounded-lg p-6 shadow-xl">
+                    <h3 class="text-xl mb-4 font-semibold">Now Playing</h3>
+                    <div class="text-center">
+                        <div id="albumArt" class="w-48 h-48 mx-auto mb-4 rounded-lg bg-gray-700 flex items-center justify-center">
+                            <i class="fas fa-music text-4xl text-gray-600"></i>
+                        </div>
+                        <div id="songTitle" class="text-lg font-bold mb-2">Select a song...</div>
+                        <div id="artistName" class="text-gray-400 mb-4">Unknown Artist</div>
+                        
+                        <!-- Audio Controls -->
+                        <div class="space-y-4">
+                            <audio id="audioPlayer" class="hidden"></audio>
+                            <div class="flex items-center justify-center space-x-6">
+                                <button id="prevBtn" class="text-2xl hover:text-purple-400 transition-colors">
+                                    <i class="fas fa-backward"></i>
+                                </button>
+                                <button id="playPauseBtn" class="text-4xl hover:text-purple-400 transition-colors">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button id="nextBtn" class="text-2xl hover:text-purple-400 transition-colors">
+                                    <i class="fas fa-forward"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Progress Bar -->
+                            <div class="w-full">
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span id="currentTime">0:00</span>
+                                    <span id="duration">0:00</span>
+                                </div>
+                                <div class="w-full bg-gray-700 rounded-full h-2 cursor-pointer" id="progressContainer">
+                                    <div id="progressBar" class="bg-purple-400 rounded-full h-2" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist -->
+                <div class="bg-gray-800 rounded-lg p-6 shadow-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold">Mood-Based Playlist</h3>
+                        <div class="flex space-x-2">
+                            <button id="shuffleBtn" class="p-2 hover:text-purple-400 transition-colors">
+                                <i class="fas fa-random"></i>
+                            </button>
+                            <button id="repeatBtn" class="p-2 hover:text-purple-400 transition-colors">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="playlist" class="space-y-2 max-h-64 overflow-y-auto">
+                        <!-- Playlist items will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-4">
+            <div class="max-w-4xl mx-auto flex items-center justify-between">
+                <div class="flex-1 mr-4">
+                    <div class="relative">
+                        <input type="file" id="musicUpload" accept="audio/*" multiple
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <div class="bg-gray-700 rounded-lg p-4 text-center">
+                            <i class="fas fa-cloud-upload-alt text-2xl mb-2"></i>
+                            <p>Drag & drop music files or click to upload</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="uploadBtn" class="bg-purple-600 px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors">
+                    <i class="fas fa-upload mr-2"></i>
+                    Upload Music
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
