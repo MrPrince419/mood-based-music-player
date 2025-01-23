@@ -1,9 +1,5 @@
 [build]
-  command = """
-    pip install -r requirements.txt
-    npm install
-    npm run build
-  """
+  command = "pip install -r requirements.txt && npm install && npm run build"
   publish = "."
 
 [build.environment]
