@@ -2,6 +2,15 @@
   publish = "."
   command = ""
 
+[context.production]
+  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+
+[context.deploy-preview]
+  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+
+[context.branch-deploy]
+  environment = { NODE_VERSION = "16.x", NPM_VERSION = "8.x", ENABLE_FACE_DETECTION = "true" }
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

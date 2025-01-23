@@ -1,7 +1,16 @@
+// Environment Configuration
+const CONFIG = {
+    ENABLE_FACE_DETECTION: process.env.ENABLE_FACE_DETECTION === 'true',
+    MAX_UPLOAD_SIZE: parseInt(process.env.MAX_UPLOAD_SIZE || '50000000'),
+    MOOD_CONFIDENCE_THRESHOLD: 0.7,
+    MOOD_UPDATE_INTERVAL: 1000,
+    MAX_MOOD_HISTORY: 10
+};
+
 // Constants
-const MOOD_CONFIDENCE_THRESHOLD = 0.7;
-const MOOD_UPDATE_INTERVAL = 1000; // 1 second
-const MAX_MOOD_HISTORY = 10;
+const MOOD_CONFIDENCE_THRESHOLD = CONFIG.MOOD_CONFIDENCE_THRESHOLD;
+const MOOD_UPDATE_INTERVAL = CONFIG.MOOD_UPDATE_INTERVAL;
+const MAX_MOOD_HISTORY = CONFIG.MAX_MOOD_HISTORY;
 
 // Initialize webcam
 async function setupWebcam() {
@@ -169,6 +178,11 @@ class MusicPlayer {
     async handleFileUpload(files) {
         for (const file of files) {
             try {
+                // Check file size
+                if (file.size > CONFIG.MAX_UPLOAD_SIZE) {
+                    throw new Error(`File ${file.name} is too large. Maximum size is ${CONFIG.MAX_UPLOAD_SIZE / 1000000}MB`);
+                }
+
                 const url = URL.createObjectURL(file);
                 const mood = await this.analyzeMusicMood(file);
                 
@@ -184,6 +198,12 @@ class MusicPlayer {
                 });
             } catch (error) {
                 console.error('Error processing file:', file.name, error);
+                // Show error to user
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-red-500 text-white p-4 rounded-lg mb-4';
+                errorDiv.textContent = error.message;
+                document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
+                setTimeout(() => errorDiv.remove(), 5000);
             }
         }
         this.updatePlaylist();
@@ -409,6 +429,10 @@ class MoodHistory {
 // Main app initialization
 async function init() {
     try {
+        if (!CONFIG.ENABLE_FACE_DETECTION) {
+            throw new Error('Face detection is currently disabled');
+        }
+
         const video = await setupWebcam();
         const detectors = await loadModels();
         const player = new MusicPlayer();
@@ -426,13 +450,19 @@ async function init() {
                     player.playMoodBasedSong(mood);
                 }
             }
-            setTimeout(detectLoop, MOOD_UPDATE_INTERVAL);
+            setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL);
         }
 
         detectLoop();
     } catch (error) {
         console.error('Error initializing app:', error);
         document.getElementById('moodDisplay').textContent = 'Error: ' + error.message;
+        
+        // Show error message to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-red-500 text-white p-4 rounded-lg mb-4';
+        errorDiv.textContent = error.message;
+        document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
     }
 }
 
