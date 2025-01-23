@@ -36,42 +36,69 @@ async function setupWebcam() {
 // Initialize face detection models
 async function loadModels() {
     try {
+        console.log('Initializing TensorFlow.js...');
         await tf.ready();
+        console.log('TensorFlow.js initialized');
+        
         // Ensure TensorFlow backend is initialized
         await tf.setBackend('webgl');
+        console.log('WebGL backend initialized');
         
+        console.log('Creating face detector...');
         const faceDetector = await faceDetection.createDetector(
             faceDetection.SupportedModels.MediaPipeFaceDetector,
-            { runtime: 'mediapipe', modelType: 'short' }
+            { 
+                runtime: 'mediapipe',
+                modelType: 'short',
+                maxFaces: 1
+            }
         );
+        console.log('Face detector created');
+        
+        console.log('Creating landmark detector...');
         const landmarkDetector = await faceLandmarksDetection.createDetector(
             faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
-            { runtime: 'mediapipe', maxFaces: 1 }
+            { 
+                runtime: 'mediapipe',
+                maxFaces: 1,
+                refineLandmarks: true
+            }
         );
+        console.log('Landmark detector created');
+        
         return { faceDetector, landmarkDetector };
     } catch (error) {
-        console.error('Error loading models:', error);
-        throw error;
+        console.error('Error in loadModels:', error);
+        throw new Error(`Failed to initialize face detection: ${error.message}`);
     }
 }
 
 // Advanced mood detection using facial landmarks
 async function detectMood(detectors, video) {
-    const { faceDetector, landmarkDetector } = detectors;
-    const faces = await faceDetector.estimateFaces(video, {
-        flipHorizontal: false
-    });
-    
-    if (faces.length > 0) {
-        const landmarks = await landmarkDetector.estimateFaces(video);
-        if (landmarks.length > 0) {
-            // Analyze facial features for mood
-            const mood = analyzeFacialFeatures(landmarks[0]);
-            updateMoodDisplay(mood);
-            return mood;
+    try {
+        const { faceDetector, landmarkDetector } = detectors;
+        
+        console.log('Detecting faces...');
+        const faces = await faceDetector.estimateFaces(video, {
+            flipHorizontal: false
+        });
+        
+        if (faces.length > 0) {
+            console.log('Face detected, estimating landmarks...');
+            const landmarks = await landmarkDetector.estimateFaces(video);
+            if (landmarks.length > 0) {
+                console.log('Landmarks detected, analyzing mood...');
+                // Analyze facial features for mood
+                const mood = analyzeFacialFeatures(landmarks[0]);
+                updateMoodDisplay(mood);
+                return mood;
+            }
         }
+        return null;
+    } catch (error) {
+        console.error('Error in detectMood:', error);
+        throw error;
     }
-    return null;
 }
 
 // Analyze facial features to determine mood
@@ -456,39 +483,59 @@ class MoodHistory {
 // Main app initialization
 async function init() {
     try {
+        console.log('Starting app initialization...');
+        
         if (!CONFIG.ENABLE_FACE_DETECTION) {
             throw new Error('Face detection is currently disabled');
         }
 
+        console.log('Setting up webcam...');
         const video = await setupWebcam();
+        console.log('Webcam setup complete');
+
+        console.log('Loading face detection models...');
         const detectors = await loadModels();
+        console.log('Face detection models loaded');
+
         const player = new MusicPlayer();
         const moodHistory = new MoodHistory();
 
         // Main detection loop
         async function detectLoop() {
-            const mood = await detectMood(detectors, video);
-            if (mood) {
-                document.getElementById('moodConfidence').style.width = `${mood.confidence * 100}%`;
-                moodHistory.add(mood);
-                
-                if (mood.mood !== player.currentMood?.mood) {
-                    player.currentMood = mood;
-                    player.playMoodBasedSong(mood);
+            try {
+                const mood = await detectMood(detectors, video);
+                if (mood) {
+                    document.getElementById('moodConfidence').style.width = `${mood.confidence * 100}%`;
+                    moodHistory.add(mood);
+                    
+                    if (mood.mood !== player.currentMood?.mood) {
+                        player.currentMood = mood;
+                        player.playMoodBasedSong(mood);
+                    }
                 }
+                setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL);
+            } catch (error) {
+                console.error('Error in detection loop:', error);
+                document.getElementById('moodDisplay').textContent = 'Detection Error';
+                // Try to restart the loop
+                setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL * 2);
             }
-            setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL);
         }
 
+        console.log('Starting detection loop...');
         detectLoop();
     } catch (error) {
         console.error('Error initializing app:', error);
         document.getElementById('moodDisplay').textContent = 'Error: ' + error.message;
         
-        // Show error message to user
+        // Show detailed error message to user
         const errorDiv = document.createElement('div');
         errorDiv.className = 'bg-red-500 text-white p-4 rounded-lg mb-4';
-        errorDiv.textContent = error.message;
+        errorDiv.innerHTML = `
+            <p class="font-bold">Error Initializing App:</p>
+            <p>${error.message}</p>
+            <p class="text-sm mt-2">Please check the browser console for more details.</p>
+        `;
         document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
     }
 }
