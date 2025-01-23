@@ -20,6 +20,15 @@ export default {
       '@tensorflow/tfjs',
       '@tensorflow-models/face-detection',
       '@tensorflow-models/face-landmarks-detection'
-    ]
+    ],
+    esbuildOptions: {
+      target: 'es2020'
+    }
+  },
+  server: {
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin'
+    }
   }
 }

@@ -36,13 +36,17 @@ async function setupWebcam() {
 // Initialize face detection models
 async function loadModels() {
     try {
+        await tf.ready();
+        // Ensure TensorFlow backend is initialized
+        await tf.setBackend('webgl');
+        
         const faceDetector = await faceDetection.createDetector(
             faceDetection.SupportedModels.MediaPipeFaceDetector,
-            { runtime: 'mediapipe' }
+            { runtime: 'mediapipe', modelType: 'short' }
         );
         const landmarkDetector = await faceLandmarksDetection.createDetector(
             faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
-            { runtime: 'mediapipe' }
+            { runtime: 'mediapipe', maxFaces: 1 }
         );
         return { faceDetector, landmarkDetector };
     } catch (error) {
