@@ -40,15 +40,24 @@ async function loadModels() {
         await tf.ready();
         console.log('TensorFlow.js initialized');
         
-        // Ensure TensorFlow backend is initialized
-        await tf.setBackend('webgl');
-        console.log('WebGL backend initialized');
+        // Try to initialize WebGL backend, fall back to CPU if not available
+        try {
+            await tf.setBackend('webgl');
+            console.log('WebGL backend initialized');
+        } catch (error) {
+            console.warn('WebGL not available, falling back to CPU:', error);
+            await tf.setBackend('cpu');
+            console.log('CPU backend initialized');
+        }
+        
+        // Set flags for better performance on CPU
+        tf.env().set('WEBGL_CPU_FORWARD', true);
         
         console.log('Creating face detector...');
         const faceDetector = await faceDetection.createDetector(
             faceDetection.SupportedModels.MediaPipeFaceDetector,
             { 
-                runtime: 'mediapipe',
+                runtime: 'tfjs',
                 modelType: 'short',
                 maxFaces: 1
             }
@@ -59,7 +68,7 @@ async function loadModels() {
         const landmarkDetector = await faceLandmarksDetection.createDetector(
             faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
             { 
-                runtime: 'mediapipe',
+                runtime: 'tfjs',
                 maxFaces: 1,
                 refineLandmarks: true
             }
@@ -489,13 +498,27 @@ async function init() {
             throw new Error('Face detection is currently disabled');
         }
 
+        // Check for WebGL support
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) {
+            console.warn('WebGL is not supported. Face detection may be slower.');
+        }
+
         console.log('Setting up webcam...');
         const video = await setupWebcam();
         console.log('Webcam setup complete');
 
         console.log('Loading face detection models...');
-        const detectors = await loadModels();
-        console.log('Face detection models loaded');
+        let detectors = null;
+        try {
+            detectors = await loadModels();
+            console.log('Face detection models loaded');
+        } catch (error) {
+            console.error('Failed to load face detection models:', error);
+            document.getElementById('moodDisplay').textContent = 'Face Detection Unavailable';
+            throw error;
+        }
 
         const player = new MusicPlayer();
         const moodHistory = new MoodHistory();
@@ -503,6 +526,12 @@ async function init() {
         // Main detection loop
         async function detectLoop() {
             try {
+                if (!detectors) {
+                    console.warn('Face detection not available');
+                    document.getElementById('moodDisplay').textContent = 'Face Detection Unavailable';
+                    return;
+                }
+
                 const mood = await detectMood(detectors, video);
                 if (mood) {
                     document.getElementById('moodConfidence').style.width = `${mood.confidence * 100}%`;
@@ -535,6 +564,7 @@ async function init() {
             <p class="font-bold">Error Initializing App:</p>
             <p>${error.message}</p>
             <p class="text-sm mt-2">Please check the browser console for more details.</p>
+            ${!tf.findBackend('webgl') ? '<p class="text-sm mt-2">WebGL is not available on your device. Face detection may not work properly.</p>' : ''}
         `;
         document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
     }
