@@ -1,3 +1,7 @@
+import * as tf from '@tensorflow/tfjs';
+import * as faceDetection from '@tensorflow-models/face-detection';
+import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
+
 // Environment Configuration
 const CONFIG = {
     ENABLE_FACE_DETECTION: true, // Default to true if env var not available
