@@ -1,6 +1,9 @@
-# 🎵 Mood Music Player
+# 🎵 Mood-Based Music Player
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/88e62178-35f5-43d5-a6fa-23f8b360462c/deploy-status)](https://app.netlify.com/sites/mrprince-mood-based-music-player/deploys)
+
+## 🌐 Live Demo
+**[Try the app here!](https://mrprince-mood-based-music-player.netlify.app)**
 
 A web-based music player that adapts to your mood through facial expressions and plays music that matches your emotional state.
 
