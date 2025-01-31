@@ -31,7 +31,7 @@ A web-based music player that adapts to your mood through facial expressions and
 
 ## 🚀 Live Demo
 
-Visit [https://mrprince-mood-based-music-player.netlify.app](https://mrprince-mood-based-music-player.netlify.app)
+Visit [https://mrprince-mood-based-music-player.netlify.app](https://mrprince419-mood-based-music-player.netlify.app/)
 
 ## 🛠️ Technical Details
 
