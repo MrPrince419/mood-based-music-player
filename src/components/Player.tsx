@@ -7,7 +7,6 @@ const Player: React.FC = () => {
   const audioContext = useRef<AudioContext | null>(null);
   const audioElement = useRef<HTMLAudioElement | null>(null);
   const { currentSong } = useMusic();
-
   useEffect(() => {
     // Initialize AudioContext on user interaction
     const initializeAudio = () => {
@@ -20,18 +19,20 @@ const Player: React.FC = () => {
         }
       }
     };
-
-    // Add listener for user interaction
-    document.addEventListener('click', initializeAudio, { once: true });
-
-    return () => {
-      document.removeEventListener('click', initializeAudio);
-      if (audioContext.current) {
-        audioContext.current.close();
+  // Add listener for user interaction
+  document.addEventListener('click', initializeAudio, { once: true });
+  // Cleanup function should also stop audio playback
+  return () => {
+    document.removeEventListener('click', initializeAudio);
+    if (audioContext.current) {
+      audioContext.current.close();
+      if (audioElement.current) {
+        audioElement.current.pause();
+        audioElement.current.src = '';
       }
-    };
-  }, []);
-
+    }
+  };
+}, []);
   const togglePlay = async () => {
     if (!audioContext.current) {
       try {
