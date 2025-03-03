@@ -496,19 +496,29 @@ class MoodHistory {
     }
 
     update() {
+        if (!this.container) {
+            console.warn('Mood history container not found');
+            return;
+        }
+
         const fragment = document.createDocumentFragment();
         
         this.history.forEach(entry => {
+            if (!entry || typeof entry.mood !== 'string') {
+                console.warn('Invalid mood entry:', entry);
+                return;
+            }
+        
             const item = document.createElement('div');
             item.className = 'flex items-center justify-between p-2 rounded-lg bg-gray-700';
             
-            const time = new Date(entry.timestamp).toLocaleTimeString();
+            const time = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : 'Unknown';
             item.innerHTML = `
                 <div class="flex items-center">
                     <span class="font-medium">${entry.mood}</span>
                     <span class="ml-2 text-sm text-gray-400">${time}</span>
                 </div>
-                <div class="text-sm text-gray-400">${Math.round(entry.confidence * 100)}%</div>
+                <div class="text-sm text-gray-400">${Math.round((entry.confidence || 0) * 100)}%</div>
             `;
             
             fragment.appendChild(item);
