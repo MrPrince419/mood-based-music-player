@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mood-music-player-v1';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'mood-music-v1';
+const ASSETS = [
     '/',
     '/index.html',
     '/static/js/main.js',
@@ -9,7 +9,7 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS_TO_CACHE))
+            .then(cache => cache.addAll(ASSETS))
     );
 });
 

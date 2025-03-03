@@ -34,51 +34,92 @@ async function setupWebcam() {
 }
 
 // Initialize face detection models
-async function loadModels() {
-    try {
-        console.log('Initializing TensorFlow.js...');
-        await tf.ready();
-        console.log('TensorFlow.js initialized');
+class ErrorHandler {
+    static MAX_RETRIES = 3;
+    static RETRY_DELAY = 1000;
+
+    static async withRetry(operation, context = 'Operation') {
+        let lastError;
         
-        // Try to initialize WebGL backend, fall back to CPU if not available
-        try {
-            await tf.setBackend('webgl');
-            console.log('WebGL backend initialized');
-        } catch (error) {
-            console.warn('WebGL not available, falling back to CPU:', error);
-            await tf.setBackend('cpu');
-            console.log('CPU backend initialized');
+        for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                lastError = error;
+                console.warn(`${context} failed (attempt ${attempt}/${this.MAX_RETRIES}):`, error);
+                
+                if (attempt < this.MAX_RETRIES) {
+                    await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY * attempt));
+                }
+            }
         }
         
-        // Set flags for better performance on CPU
-        tf.env().set('WEBGL_CPU_FORWARD', true);
+        throw new Error(`${context} failed after ${this.MAX_RETRIES} attempts: ${lastError.message}`);
+    }
+}
+
+// Update the loadModels function to use retry mechanism
+async function loadModels() {
+    return ErrorHandler.withRetry(async () => {
+        // Load core TensorFlow.js first
+        await tf.ready();
         
-        console.log('Creating face detector...');
-        const faceDetector = await faceDetection.createDetector(
-            faceDetection.SupportedModels.MediaPipeFaceDetector,
-            { 
-                runtime: 'tfjs',
-                modelType: 'short',
-                maxFaces: 1
+        // Lazy load face detection models
+        const [faceDetectionModule, faceLandmarksModule] = await Promise.all([
+            import('@tensorflow-models/face-detection'),
+            import('@tensorflow-models/face-landmarks-detection')
+        ]);
+        
+        try {
+            console.log('Initializing TensorFlow.js...');
+            await tf.ready();
+            console.log('TensorFlow.js initialized');
+            
+            // Try to initialize WebGL backend, fall back to CPU if not available
+            try {
+                await tf.setBackend('webgl');
+                console.log('WebGL backend initialized');
+            } catch (error) {
+                throw createError(
+                    'WebGL initialization failed',
+                    ErrorCode.MODEL_LOAD,
+                    ErrorSeverity.WARNING,
+                    'TensorFlow',
+                    { originalError: error.message }
+                );
             }
-        );
-        console.log('Face detector created');
-        
-        console.log('Creating landmark detector...');
-        const landmarkDetector = await faceLandmarksDetection.createDetector(
-            faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
-            { 
-                runtime: 'tfjs',
-                maxFaces: 1,
-                refineLandmarks: true
-            }
-        );
-        console.log('Landmark detector created');
-        
-        return { faceDetector, landmarkDetector };
-    } catch (error) {
-        console.error('Error in loadModels:', error);
-        throw new Error(`Failed to initialize face detection: ${error.message}`);
+            console.log('CPU backend initialized');
+            
+            // Set flags for better performance on CPU
+            tf.env().set('WEBGL_CPU_FORWARD', true);
+            
+            console.log('Creating face detector...');
+            const faceDetector = await faceDetection.createDetector(
+                faceDetection.SupportedModels.MediaPipeFaceDetector,
+                { 
+                    runtime: 'tfjs',
+                    modelType: 'short',
+                    maxFaces: 1
+                }
+            );
+            console.log('Face detector created');
+            
+            console.log('Creating landmark detector...');
+            const landmarkDetector = await faceLandmarksDetection.createDetector(
+                faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+                { 
+                    runtime: 'tfjs',
+                    maxFaces: 1,
+                    refineLandmarks: true
+                }
+            );
+            console.log('Landmark detector created');
+            
+            return { faceDetector, landmarkDetector };
+        } catch (error) {
+            console.error('Error in loadModels:', error);
+            throw new Error(`Failed to initialize face detection: ${error.message}`);
+        }
     }
 }
 
@@ -146,26 +187,110 @@ function analyzeFacialFeatures(landmarks) {
 
 // Helper functions for facial analysis
 function calculateEyeOpenness(landmarks) {
-    // Calculate eye openness using landmark positions
-    return Math.random(); // Placeholder
+    const leftEye = landmarks.annotations.leftEye;
+    const rightEye = landmarks.annotations.rightEye;
+    
+    const leftHeight = calculateDistance(leftEye[1], leftEye[7]);
+    const rightHeight = calculateDistance(rightEye[1], rightEye[7]);
+    
+    return (leftHeight + rightHeight) / 2;
 }
 
 function calculateMouthCurvature(landmarks) {
-    // Calculate mouth curvature using landmark positions
-    return Math.random(); // Placeholder
+    const mouth = landmarks.annotations.lipsUpperOuter;
+    const mouthCenter = mouth[5];
+    const mouthCorners = [mouth[0], mouth[10]];
+    
+    return calculateCurvature(mouthCorners[0], mouthCenter, mouthCorners[1]);
 }
 
 function calculateBrowPosition(landmarks) {
-    // Calculate eyebrow position using landmark positions
-    return Math.random(); // Placeholder
+    const leftBrow = landmarks.annotations.leftEyebrowUpper;
+    const rightBrow = landmarks.annotations.rightEyebrowUpper;
+    
+    const avgLeftHeight = average(leftBrow.map(p => p[1]));
+    const avgRightHeight = average(rightBrow.map(p => p[1]));
+    
+    return (avgLeftHeight + avgRightHeight) / 2;
+}
+
+// Helper geometry functions
+function calculateDistance(p1, p2) {
+    return Math.sqrt(Math.pow(p2[0] - p1[0], 2) + Math.pow(p2[1] - p1[1], 2));
+}
+
+function calculateCurvature(p1, p2, p3) {
+    const a = calculateDistance(p1, p2);
+    const b = calculateDistance(p2, p3);
+    const c = calculateDistance(p3, p1);
+    const s = (a + b + c) / 2;
+    return (4 * Math.sqrt(s * (s - a) * (s - b) * (s - c))) / (a * c);
+}
+
+function average(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
 function calculateMoodConfidence(condition, eyeOpenness, mouthCurvature, browPosition) {
-    // Calculate confidence score for mood detection
-    return Math.random(); // Placeholder
+    // Weight factors for different facial features
+    const weights = {
+        eyeOpenness: 0.3,
+        mouthCurvature: 0.4,
+        browPosition: 0.3
+    };
+
+    // Calculate normalized scores
+    const scores = {
+        eyeOpenness: Math.min(Math.max(eyeOpenness, 0), 1),
+        mouthCurvature: Math.min(Math.max(mouthCurvature, 0), 1),
+        browPosition: Math.min(Math.max(browPosition, 0), 1)
+    };
+
+    // Calculate weighted average
+    const confidence = (
+        scores.eyeOpenness * weights.eyeOpenness +
+        scores.mouthCurvature * weights.mouthCurvature +
+        scores.browPosition * weights.browPosition
+    ) * (condition ? 1 : 0.5); // Reduce confidence if condition is not met
+
+    return Math.min(Math.max(confidence, 0), 1);
 }
 
 // Music player functionality
+class UserPreferences {
+    static KEY = 'mood_player_preferences';
+    
+    static getDefaults() {
+        return {
+            volume: 0.8,
+            theme: 'dark',
+            moodDetectionEnabled: true,
+            visualizerEnabled: true,
+            lastPlaylist: null,
+            audioQuality: 'high'
+        };
+    }
+
+    static load() {
+        try {
+            const stored = localStorage.getItem(this.KEY);
+            return stored ? { ...this.getDefaults(), ...JSON.parse(stored) } : this.getDefaults();
+        } catch (error) {
+            console.error('Error loading preferences:', error);
+            return this.getDefaults();
+        }
+    }
+
+    static save(preferences) {
+        try {
+            localStorage.setItem(this.KEY, JSON.stringify(preferences));
+        } catch (error) {
+            console.error('Error saving preferences:', error);
+        }
+    }
+}
+
+// Update MusicPlayer class constructor
 class MusicPlayer {
     constructor() {
         this.songs = new Map();
@@ -189,23 +314,78 @@ class MusicPlayer {
     async initAudioContext() {
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
+            this.audioContext = new AudioContext({
+                latencyHint: 'interactive',
+                sampleRate: 44100
+            });
+            
+            // Create audio processing graph
+            this.analyser = this.audioContext.createAnalyser();
+            this.gainNode = this.audioContext.createGain();
+            this.biquadFilter = this.audioContext.createBiquadFilter();
+            
+            // Configure nodes
+            this.analyser.fftSize = 2048;
+            this.biquadFilter.type = 'lowpass';
+            this.biquadFilter.frequency.value = 20000;
+            
+            // Connect nodes
+            const source = this.audioContext.createMediaElementSource(this.audioPlayer);
+            source.connect(this.biquadFilter)
+                  .connect(this.gainNode)
+                  .connect(this.analyser)
+                  .connect(this.audioContext.destination);
+            
+            // Start visualization with optimized refresh rate
+            this.startVisualizer();
         } catch (error) {
             console.error('WebAudio API not supported:', error);
         }
     }
 
-    cleanup() {
-        if (this.audioContext) {
-            this.audioContext.close();
-        }
-        this.audioBuffers.clear();
-        URL.revokeObjectURL(Array.from(this.songs.values()).flat().map(song => song.url));
+    startVisualizer() {
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const draw = () => {
+            requestAnimationFrame(draw);
+            
+            this.analyser.getByteFrequencyData(dataArray);
+            
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let barHeight;
+            let x = 0;
+            
+            for(let i = 0; i < bufferLength; i++) {
+                barHeight = dataArray[i] / 2;
+                
+                const r = barHeight + (25 * (i/bufferLength));
+                const g = 250 * (i/bufferLength);
+                const b = 50;
+                
+                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                
+                x += barWidth + 1;
+            }
+        };
+        
+        draw();
     }
 }
 
 // Setup event listeners
+// Fix: Move setupEventListeners inside the class
 setupEventListeners() {
+    if (!this.audioPlayer) {
+        console.error('Audio player not initialized');
+        return;
+    }
     // Playback controls
     document.getElementById('playPause').addEventListener('click', () => this.togglePlayPause());
     document.getElementById('next').addEventListener('click', () => this.playNext());
@@ -265,8 +445,10 @@ setupEventListeners() {
     }
 }
 
-async handleFileUpload(files) {
-    for (const file of files) {
+async function handleFileUpload(files) {
+    const errors = [];
+    
+    await Promise.all(files.map(async file => {
         try {
             // Check file size
             if (file.size > CONFIG.MAX_UPLOAD_SIZE) {
@@ -321,6 +503,8 @@ updatePlaylist() {
     
     this.songs.forEach((songs, mood) => {
         const moodSection = document.createElement('div');
+        moodSection.setAttribute('role', 'region');
+        moodSection.setAttribute('aria-label', `${mood} playlist`);
         moodSection.className = 'mb-6';
         
         const header = document.createElement('div');
@@ -334,7 +518,9 @@ updatePlaylist() {
         songList.className = 'space-y-2';
         
         songs.forEach((song, index) => {
-            const songItem = document.createElement('div');
+            const songItem = document.createElement('button');
+            songItem.setAttribute('role', 'listitem');
+            songItem.setAttribute('aria-label', `Play ${song.name} by ${song.artist}`);
             songItem.className = 'flex items-center p-2 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors';
             songItem.innerHTML = `
                 <i class="fas fa-music mr-3 text-gray-400"></i>
@@ -383,16 +569,24 @@ updatePlayPauseButton() {
     btn.innerHTML = `<i class="fas fa-${this.isPlaying ? 'pause' : 'play'}"></i>`;
 }
 
-updateProgress() {
-    const currentTime = document.getElementById('currentTime');
-    const duration = document.getElementById('duration');
-    const progressBar = document.getElementById('progressBar');
-    
-    currentTime.textContent = this.formatTime(this.audioPlayer.currentTime);
-    duration.textContent = this.formatTime(this.audioPlayer.duration);
-    
-    const percent = (this.audioPlayer.currentTime / this.audioPlayer.duration) * 100;
-    progressBar.style.width = `${percent}%`;
+class MusicPlayer {
+    updateProgress() {
+        if (!this.isPlaying) return;
+        
+        requestAnimationFrame(() => {
+            const currentTime = document.getElementById('currentTime');
+            const duration = document.getElementById('duration');
+            const progressBar = document.getElementById('progressBar');
+            
+            if (currentTime && duration && progressBar) {
+                currentTime.textContent = this.formatTime(this.audioPlayer.currentTime);
+                duration.textContent = this.formatTime(this.audioPlayer.duration);
+                
+                const percent = (this.audioPlayer.currentTime / this.audioPlayer.duration) * 100;
+                progressBar.style.width = `${percent}%`;
+            }
+        });
+    }
 }
 
 formatTime(seconds) {
@@ -481,51 +675,74 @@ class MoodHistory {
         this.container = document.getElementById('moodHistory');
     }
 
-    add(mood) {
-        this.history.unshift({
-            mood: mood.mood,
-            confidence: mood.confidence,
-            timestamp: new Date()
-        });
+    async analyzeMusicMood(file) {
+        const audioBuffer = await this.loadAudioBuffer(file);
+        const features = await this.extractAudioFeatures(audioBuffer);
         
-        if (this.history.length > MAX_MOOD_HISTORY) {
-            this.history.pop();
-        }
-        
-        this.update();
+        return this.classifyMood(features);
     }
 
-    update() {
-        if (!this.container) {
-            console.warn('Mood history container not found');
-            return;
+    async loadAudioBuffer(file) {
+        const cacheKey = file.name;
+        if (this.audioBufferCache.has(cacheKey)) {
+            return this.audioBufferCache.get(cacheKey);
         }
 
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        
+        // Cache management
+        if (this.audioBufferCache.size >= this.maxCacheSize) {
+            const firstKey = this.audioBufferCache.keys().next().value;
+            this.audioBufferCache.delete(firstKey);
+        }
+        
+        this.audioBufferCache.set(cacheKey, audioBuffer);
+        return audioBuffer;
+    }
+
+    updatePlaylist() {
+        // Use DocumentFragment for better performance
         const fragment = document.createDocumentFragment();
+        const playlist = document.getElementById('playlist');
         
-        this.history.forEach(entry => {
-            if (!entry || typeof entry.mood !== 'string') {
-                console.warn('Invalid mood entry:', entry);
-                return;
-            }
-        
-            const item = document.createElement('div');
-            item.className = 'flex items-center justify-between p-2 rounded-lg bg-gray-700';
+        this.songs.forEach((songs, mood) => {
+            const moodSection = document.createElement('div');
+            moodSection.setAttribute('role', 'region');
+            moodSection.setAttribute('aria-label', `${mood} playlist`);
+            moodSection.className = 'mb-6';
             
-            const time = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : 'Unknown';
-            item.innerHTML = `
-                <div class="flex items-center">
-                    <span class="font-medium">${entry.mood}</span>
-                    <span class="ml-2 text-sm text-gray-400">${time}</span>
-                </div>
-                <div class="text-sm text-gray-400">${Math.round((entry.confidence || 0) * 100)}%</div>
+            const header = document.createElement('div');
+            header.className = 'flex items-center mb-2';
+            header.innerHTML = `
+                <h4 class="text-lg font-bold">${mood}</h4>
+                <span class="ml-2 text-sm text-gray-400">(${songs.length} songs)</span>
             `;
             
-            fragment.appendChild(item);
+            const songList = document.createElement('div');
+            songList.className = 'space-y-2';
+            
+            songs.forEach((song, index) => {
+                const songItem = document.createElement('button');
+                songItem.setAttribute('role', 'listitem');
+                songItem.setAttribute('aria-label', `Play ${song.name} by ${song.artist}`);
+                songItem.className = 'flex items-center p-2 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors';
+                songItem.innerHTML = `
+                    <i class="fas fa-music mr-3 text-gray-400"></i>
+                    <div class="flex-1">
+                        <div class="font-medium">${song.name.replace(/\.[^/.]+$/, '')}</div>
+                        <div class="text-sm text-gray-400">${song.artist}</div>
+                    </div>
+                    <div class="text-sm text-gray-400">${song.duration}</div>
+                `;
+                songItem.onclick = () => this.playSong(song);
+                songList.appendChild(songItem);
+            });
+            
+            moodSection.appendChild(header);
+            moodSection.appendChild(songList);
+            playlist.appendChild(moodSection);
         });
-        
-        this.container.innerHTML = '';
-        this.container.appendChild(fragment);
     }
 }
 
@@ -564,35 +781,49 @@ async function init() {
         const moodHistory = new MoodHistory();
 
         // Main detection loop
+        let isProcessing = false;
+        // Update the detection loop
         async function detectLoop() {
-            try {
-                if (!detectors) {
-                    console.warn('Face detection not available');
-                    document.getElementById('moodDisplay').textContent = 'Face Detection Unavailable';
+            if (!window.Worker) {
+                // Fallback to main thread processing
+                return legacyDetectLoop();
+            }
+        
+            const worker = new Worker('faceDetectionWorker.js');
+            let lastFrameTime = 0;
+            const FRAME_INTERVAL = 1000 / 30; // 30 FPS cap
+            
+            worker.onmessage = async (e) => {
+                const { mood, error } = e.data;
+                if (error) {
+                    console.error('Face detection error:', error);
                     return;
                 }
-
-                let isProcessing = false;
-                if (!isProcessing) {
-                    isProcessing = true;
-                    const mood = await detectMood(detectors, video);
-                    if (mood) {
-                        document.getElementById('moodConfidence').style.width = `${mood.confidence * 100}%`;
-                        moodHistory.add(mood);
-                        
-                        if (mood.mood !== player.currentMood?.mood) {
-                            player.currentMood = mood;
-                            player.playMoodBasedSong(mood);
-                        }
+                
+                if (mood) {
+                    updateMoodDisplay(mood);
+                    if (mood.mood !== player.currentMood?.mood) {
+                        player.currentMood = mood;
+                        player.playMoodBasedSong(mood);
                     }
-                    isProcessing = false;
                 }
-                setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL);
-            } catch (error) {
-                console.error('Error in detection loop:', error);
-                document.getElementById('moodDisplay').textContent = 'Detection Error';
-                setTimeout(detectLoop, CONFIG.MOOD_UPDATE_INTERVAL * 2);
-            }
+            };
+        
+            // Send video frames to worker
+            const sendFrame = async (timestamp) => {
+                if (timestamp - lastFrameTime >= FRAME_INTERVAL) {
+                    if (!isProcessing) {
+                        isProcessing = true;
+                        const imageData = await captureFrame(video);
+                        worker.postMessage({ frame: imageData }, [imageData.data.buffer]);
+                        lastFrameTime = timestamp;
+                        isProcessing = false;
+                    }
+                }
+                requestAnimationFrame(sendFrame);
+            };
+        
+            sendFrame();
         }
 
         console.log('Starting detection loop...');
