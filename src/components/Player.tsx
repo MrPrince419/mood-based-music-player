@@ -1,12 +1,18 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Song, PlayerState } from '../types/music';
 import { createError, ErrorCode, ErrorSeverity } from '../utils/errorHandling';
+import { useMusic } from '../context/MusicContext';
 
 interface PlayerProps {
   currentSong: Song | null;
   onPlayStateChange: (isPlaying: boolean) => void;
   onTimeUpdate: (currentTime: number) => void;
   onError: (error: Error) => void;
+}
+
+interface AudioState {
+  currentTime: string;
+  duration: string;
 }
 
 const Player: React.FC<PlayerProps> = ({ 
@@ -29,6 +35,10 @@ const Player: React.FC<PlayerProps> = ({
   const { isPlaying, setIsPlaying } = useMusic();
   const [progress, setProgress] = useState(0);
   const [browserSupported, setBrowserSupported] = useState(true);
+  const [audioState, setAudioState] = useState<AudioState>({
+    currentTime: '0:00',
+    duration: '0:00'
+  });
   
   // Initialize volume from localStorage
   useEffect(() => {
@@ -83,8 +93,10 @@ const Player: React.FC<PlayerProps> = ({
     if (audioRef.current) {
       const currentProgress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
       setProgress(currentProgress || 0);
-      setCurrentTime(formatTime(audioRef.current.currentTime));
-      setDuration(formatTime(audioRef.current.duration));
+      setAudioState({
+        currentTime: formatTime(audioRef.current.currentTime),
+        duration: formatTime(audioRef.current.duration)
+      });
     }
   };
   audioRef.current.addEventListener('timeupdate', updateProgress);
@@ -235,8 +247,8 @@ const Player: React.FC<PlayerProps> = ({
     </div>
     <div className="flex items-center justify-between">
       <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-        <span>{currentTime}</span>
-        <span>{duration}</span>
+        <span>{audioState.currentTime}</span>
+        <span>{audioState.duration}</span>
       </div>
       <div className="flex items-center space-x-2">
         <input

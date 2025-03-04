@@ -11,19 +11,19 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-    public state: State = {
+    public override state: State = {
         hasError: false
     };
 
-    public static getDerivedStateFromError(error: Error): State {
+    public override static getDerivedStateFromError(error: Error): State {
         return { hasError: true, error };
     }
 
-    public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('Uncaught error:', error, errorInfo);
     }
 
-    public render() {
+    public override render() {
         if (this.state.hasError) {
             return this.props.fallback || (
                 <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">

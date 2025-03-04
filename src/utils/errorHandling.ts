@@ -16,8 +16,8 @@ export enum ErrorCode {
 
 export interface ErrorMetadata {
     timestamp: Date;
-    component?: string;
-    details?: Record<string, unknown>;
+    component?: string | undefined;
+    details?: Record<string, unknown> | undefined;
 }
 
 export class AppError extends Error {
@@ -93,8 +93,8 @@ export function createError(
     message: string,
     code: ErrorCode,
     severity: ErrorSeverity,
-    component?: string,
-    details?: Record<string, unknown>
+    component?: string | undefined,
+    details?: Record<string, unknown> | undefined
 ): AppError {
     return new AppError(message, code, severity, {
         timestamp: new Date(),
