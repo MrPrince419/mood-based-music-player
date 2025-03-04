@@ -1,24 +1,26 @@
-importScripts('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
-importScripts('https://cdn.jsdelivr.net/npm/@tensorflow-models/face-detection');
+import * as tf from '@tensorflow/tfjs';
+import * as faceDetection from '@tensorflow-models/face-detection';
 
 let detector = null;
 
-async function initializeDetector() {
+self.onmessage = async (e) => {
+  if (e.data.type === 'init') {
     await tf.ready();
     detector = await faceDetection.createDetector(
-        faceDetection.SupportedModels.MediaPipeFaceDetector,
-        { runtime: 'tfjs' }
+      faceDetection.SupportedModels.MediaPipeFaceDetector,
+      { runtime: 'tfjs' }
     );
-}
-
-self.onmessage = async function(e) {
-    if (!detector) await initializeDetector();
-    
-    const imageData = e.data;
-    try {
-        const faces = await detector.estimateFaces(imageData);
-        self.postMessage({ faces });
-    } catch (error) {
-        self.postMessage({ error: error.message });
+    self.postMessage({ type: 'ready' });
+  } else if (e.data.type === 'detect') {
+    if (!detector) {
+      self.postMessage({ type: 'error', error: 'Detector not initialized' });
+      return;
     }
+    try {
+      const faces = await detector.estimateFaces(e.data.imageData);
+      self.postMessage({ type: 'result', faces });
+    } catch (error) {
+      self.postMessage({ type: 'error', error: error.message });
+    }
+  }
 };

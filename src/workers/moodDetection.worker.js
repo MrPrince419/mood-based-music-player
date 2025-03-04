@@ -1,22 +1,43 @@
 import * as tf from '@tensorflow/tfjs';
-import * as faceDetection from '@tensorflow-models/face-detection';
+import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
 
-let detector = null;
+let model = null;
 
-async function initDetector() {
+self.onmessage = async (e) => {
+  if (e.data.type === 'init') {
     await tf.ready();
-    detector = await faceDetection.createDetector(
-        faceDetection.SupportedModels.MediaPipeFaceDetector
+    model = await faceLandmarksDetection.load(
+      faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+      { runtime: 'tfjs' }
     );
-}
-
-self.onmessage = async function(e) {
-    if (!detector) await initDetector();
-    
-    try {
-        const result = await detector.estimateFaces(e.data.imageData);
-        self.postMessage({ type: 'result', data: result });
-    } catch (error) {
-        self.postMessage({ type: 'error', error: error.message });
+    self.postMessage({ type: 'ready' });
+  } else if (e.data.type === 'detect') {
+    if (!model) {
+      self.postMessage({ type: 'error', error: 'Model not initialized' });
+      return;
     }
+    try {
+      const predictions = await model.estimateFaces({
+        input: e.data.imageData
+      });
+      const mood = analyzeFacialExpression(predictions[0]);
+      self.postMessage({ type: 'result', mood });
+    } catch (error) {
+      self.postMessage({ type: 'error', error: error.message });
+    }
+  }
 };
+
+function analyzeFacialExpression(face) {
+  if (!face) return 'neutral';
+  
+  // Simplified mood detection based on key facial landmarks
+  // In a real implementation, you'd want more sophisticated analysis
+  const mouthHeight = face.keypoints[13].y - face.keypoints[14].y;
+  const eyeDistance = Math.abs(face.keypoints[5].y - face.keypoints[4].y);
+  
+  if (mouthHeight > 0.2) return 'happy';
+  if (eyeDistance < 0.1) return 'sad';
+  if (mouthHeight < 0.1) return 'angry';
+  return 'neutral';
+}
