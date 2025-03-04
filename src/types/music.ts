@@ -1,16 +1,8 @@
 export interface Song {
   id: string;
-  name: string;
-  artist: string;
+  title: string;
   url: string;
-  duration: number;
-  mood?: string;
-}
-
-export interface MoodData {
   mood: string;
-  confidence: number;
-  timestamp: Date;
 }
 
 export interface PlayerState {
@@ -19,6 +11,15 @@ export interface PlayerState {
   volume: number;
   currentTime: number;
   duration: number;
+}
+
+export interface MoodData {
+  timestamp: number;
+  mood: string;
+}
+
+export interface MoodHistoryProps {
+  history: MoodData[];
 }
 
 export type RepeatMode = 'none' | 'one' | 'all';

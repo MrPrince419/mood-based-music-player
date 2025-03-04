@@ -15,11 +15,11 @@ interface AudioState {
   duration: string;
 }
 
-const Player: React.FC<PlayerProps> = ({ 
-  currentSong, 
-  onPlayStateChange, 
-  onTimeUpdate, 
-  onError 
+const Player: React.FC<PlayerProps> = ({
+  currentSong,
+  onPlayStateChange,
+  onTimeUpdate,
+  onError
 }) => {
   const [playerState, setPlayerState] = useState<PlayerState>({
     currentSong: null,
@@ -39,6 +39,7 @@ const Player: React.FC<PlayerProps> = ({
     currentTime: '0:00',
     duration: '0:00'
   });
+  const [duration, setDuration] = useState('0:00');
   
   // Initialize volume from localStorage
   useEffect(() => {
@@ -118,7 +119,7 @@ const Player: React.FC<PlayerProps> = ({
   // Update audio source when currentSong changes
   useEffect(() => {
     if (currentSong && audioRef.current) {
-      audioRef.current.src = currentSong;
+      audioRef.current.src = currentSong.url; // Use url property from Song type
       if (isPlaying) {
         audioRef.current.play();
       }
@@ -171,14 +172,13 @@ const Player: React.FC<PlayerProps> = ({
   if (audioContext.current.state === 'suspended') {
     await audioContext.current.resume();
   }
-  setIsPlaying(!isPlaying);
+  const newPlayState = !isPlaying;
+  setIsPlaying(newPlayState);
+  onPlayStateChange(newPlayState);
 } catch (error) {
-  handleError(createError(
-    'Failed to toggle playback',
-    ErrorCode.AUDIO_PLAYBACK,
-    ErrorSeverity.ERROR,
-    'Player'
-  ));
+  if (error instanceof Error) {
+    handleError(error);
+  }
 }
   };
   // Update the progress bar JSX to include click handling
@@ -189,7 +189,7 @@ const Player: React.FC<PlayerProps> = ({
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-lg animate-pulse"></div>
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-              {currentSong || 'No song playing'}
+              {currentSong ? currentSong.title : 'No song playing'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {currentSong ? 'Now playing' : 'Select a mood to start playing'}

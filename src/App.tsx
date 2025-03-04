@@ -10,6 +10,8 @@ const App: React.FC = () => {
   const [currentMood, setCurrentMood] = useState<string>('');
   const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [error, setError] = useState<string | null>(null);
+  const [moodHistory, setMoodHistory] = useState<MoodData[]>([]);
+  const [currentPlayingSong, setCurrentPlayingSong] = useState<Song | null>(null);
 
   useEffect(() => {
     checkPermissions();
@@ -50,6 +52,18 @@ const App: React.FC = () => {
 
   const handleRequestPermission = async () => {
     await checkPermissions();
+  };
+
+  const handlePlayStateChange = (isPlaying: boolean) => {
+    // Handle play state change
+  };
+
+  const handleTimeUpdate = (currentTime: number) => {
+    // Handle time update
+  };
+
+  const handlePlayerError = (error: Error) => {
+    // Handle player error
   };
 
   return (
@@ -101,13 +115,18 @@ const App: React.FC = () => {
 
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
                           <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Mood History</h2>
-                          <MoodHistory />
+                          <MoodHistory history={moodHistory} />
                         </div>
                       </div>
 
                       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
                         <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-4">Now Playing</h2>
-                        <Player />
+                        <Player 
+                          currentSong={currentPlayingSong}
+                          onPlayStateChange={handlePlayStateChange}
+                          onTimeUpdate={handleTimeUpdate}
+                          onError={handlePlayerError}
+                        />
                       </div>
 
                       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6">
