@@ -1,34 +1,15 @@
-export default {
-  root: '.',
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          tensorflow: [
-            '@tensorflow/tfjs',
-            '@tensorflow-models/face-detection',
-            '@tensorflow-models/face-landmarks-detection'
-          ]
-        }
-      }
-    }
   },
   optimizeDeps: {
-    include: [
-      '@tensorflow/tfjs',
-      '@tensorflow-models/face-detection',
-      '@tensorflow-models/face-landmarks-detection'
-    ],
     esbuildOptions: {
-      target: 'es2020'
-    }
+      target: 'es2020',
+    },
   },
-  server: {
-    headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin'
-    }
-  }
-}
+});

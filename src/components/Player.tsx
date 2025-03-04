@@ -1,56 +1,157 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMusic } from '../context/MusicContext';
+import { createError, ErrorCode, ErrorSeverity, handleError } from '../utils/errorHandling';
+import { checkBrowserSupport } from '../utils/browserCheck';
 
 const Player: React.FC = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const audioContext = useRef<AudioContext | null>(null);
   const audioElement = useRef<HTMLAudioElement | null>(null);
-  const { currentSong } = useMusic();
+  const { currentSong, isPlaying, setIsPlaying } = useMusic();
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState('0:00');
+  const [duration, setDuration] = useState('0:00');
+  const [browserSupported, setBrowserSupported] = useState(true);
+  
+  // Initialize volume from localStorage
   useEffect(() => {
-    // Initialize AudioContext on user interaction
-    const initializeAudio = () => {
-      if (!audioContext.current) {
-        try {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          audioContext.current = new AudioContextClass();
-        } catch (error) {
-          console.error('Failed to create AudioContext:', error);
-        }
-      }
-    };
-  // Add listener for user interaction
-  document.addEventListener('click', initializeAudio, { once: true });
-  // Cleanup function should also stop audio playback
-  return () => {
-    document.removeEventListener('click', initializeAudio);
-    if (audioContext.current) {
-      audioContext.current.close();
+    const savedVolume = localStorage.getItem('playerVolume');
+    if (savedVolume) {
+      setVolume(parseFloat(savedVolume));
       if (audioElement.current) {
+        audioElement.current.volume = parseFloat(savedVolume);
+      }
+    }
+  }, []);
+  
+  // Save volume preference
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    localStorage.setItem('playerVolume', newVolume.toString());
+    if (audioElement.current) {
+      audioElement.current.volume = newVolume;
+    }
+  };
+  
+  if (!browserSupported) {
+    return (
+      <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <h2 className="text-lg font-bold mb-2">Browser Not Supported</h2>
+        <p>Please use a modern browser that supports Web Audio API.</p>
+      </div>
+    );
+  }
+  const formatTime = (time: number): string => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+  
+  useEffect(() => {
+    // Initialize audio element
+    audioElement.current = new Audio();
+    
+    const handleError = (e: ErrorEvent) => {
+      handleError(createError(
+        'Audio playback error',
+        ErrorCode.AUDIO_PLAYBACK,
+        ErrorSeverity.ERROR,
+        'Player',
+        { details: e.error }
+      ));
+      setIsPlaying(false);
+    };
+  const updateProgress = () => {
+    if (audioElement.current) {
+      const currentProgress = (audioElement.current.currentTime / audioElement.current.duration) * 100;
+      setProgress(currentProgress || 0);
+      setCurrentTime(formatTime(audioElement.current.currentTime));
+      setDuration(formatTime(audioElement.current.duration));
+    }
+  };
+  audioElement.current.addEventListener('timeupdate', updateProgress);
+  audioElement.current.addEventListener('error', handleError);
+  audioElement.current.addEventListener('loadedmetadata', () => {
+    if (audioElement.current) {
+      setDuration(formatTime(audioElement.current.duration));
+    }
+  });
+  return () => {
+    if (audioElement.current) {
+      audioElement.current.removeEventListener('timeupdate', updateProgress);
+      audioElement.current.removeEventListener('error', handleError);
+      audioElement.current.pause();
+      audioElement.current.src = '';
+    }
+  };
+}, [setIsPlaying]);
+  // Update audio source when currentSong changes
+  useEffect(() => {
+    if (currentSong && audioElement.current) {
+      audioElement.current.src = currentSong;
+      if (isPlaying) {
+        audioElement.current.play();
+      }
+    }
+  }, [currentSong]);
+  // Handle play/pause state changes
+  useEffect(() => {
+    if (audioElement.current) {
+      if (isPlaying) {
+        audioElement.current.play();
+      } else {
         audioElement.current.pause();
-        audioElement.current.src = '';
       }
     }
+  }, [isPlaying]);
+  const [volume, setVolume] = useState(1);
+  // Add seek functionality
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioElement.current) return;
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - bounds.left) / bounds.width;
+    const time = percent * audioElement.current.duration;
+    try {
+      audioElement.current.currentTime = time;
+    } catch (error) {
+      handleError(createError(
+        'Failed to seek audio',
+        ErrorCode.AUDIO_PLAYBACK,
+        ErrorSeverity.WARNING,
+        'Player'
+      ));
+    }
   };
-}, []);
+  // Add volume control
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (audioElement.current) {
+      audioElement.current.volume = newVolume;
+    }
+  };
+  // Update play/pause with error handling
   const togglePlay = async () => {
+    if (!audioElement.current || !currentSong) return;
+  try {
     if (!audioContext.current) {
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        audioContext.current = new AudioContextClass();
-      } catch (error) {
-        console.error('Failed to create AudioContext:', error);
-        return;
-      }
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioContext.current = new AudioContextClass();
     }
-
-    if (audioContext.current.state === 'suspended') {
-      await audioContext.current.resume();
-    }
-
-    setIsPlaying(!isPlaying);
+  if (audioContext.current.state === 'suspended') {
+    await audioContext.current.resume();
+  }
+  setIsPlaying(!isPlaying);
+} catch (error) {
+  handleError(createError(
+    'Failed to toggle playback',
+    ErrorCode.AUDIO_PLAYBACK,
+    ErrorSeverity.ERROR,
+    'Player'
+  ));
+}
   };
-
+  // Update the progress bar JSX to include click handling
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -104,21 +205,36 @@ const Player: React.FC = () => {
           </button>
         </div>
       </div>
-
-      <div className="space-y-2">
-        <div className="relative h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
-          <div 
-            className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-            style={{ width: `${progress}%` }}
-          ></div>
-        </div>
-        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-          <span>0:00</span>
-          <span>0:00</span>
-        </div>
+  <div className="space-y-2">
+    <div 
+      className="relative h-1 bg-gray-200 dark:bg-gray-700 rounded-full cursor-pointer"
+      onClick={handleSeek}
+    >
+      <div 
+        className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+        style={{ width: `${progress}%` }}
+      ></div>
+    </div>
+    <div className="flex items-center justify-between">
+      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+        <span>{currentTime}</span>
+        <span>{duration}</span>
+      </div>
+      <div className="flex items-center space-x-2">
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={handleVolumeChange}
+          className="w-20"
+        />
       </div>
     </div>
-  );
+  </div>
+</div>
+);
 };
 
 export default Player;

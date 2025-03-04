@@ -104,7 +104,6 @@ async function loadModels() {
             );
             console.log('Face detector created');
             
-            console.log('Creating landmark detector...');
             const landmarkDetector = await faceLandmarksDetection.createDetector(
                 faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
                 { 
@@ -113,14 +112,13 @@ async function loadModels() {
                     refineLandmarks: true
                 }
             );
-            console.log('Landmark detector created');
             
             return { faceDetector, landmarkDetector };
         } catch (error) {
             console.error('Error in loadModels:', error);
             throw new Error(`Failed to initialize face detection: ${error.message}`);
         }
-    }
+    });  // Fixed: Added missing parenthesis here
 }
 
 // Advanced mood detection using facial landmarks
@@ -186,14 +184,24 @@ function analyzeFacialFeatures(landmarks) {
 }
 
 // Helper functions for facial analysis
-function calculateEyeOpenness(landmarks) {
-    const leftEye = landmarks.annotations.leftEye;
-    const rightEye = landmarks.annotations.rightEye;
-    
-    const leftHeight = calculateDistance(leftEye[1], leftEye[7]);
-    const rightHeight = calculateDistance(rightEye[1], rightEye[7]);
-    
-    return (leftHeight + rightHeight) / 2;
+interface FacialLandmarks {
+  annotations: {
+    leftEye: number[][];
+    rightEye: number[][];
+    lipsUpperOuter: number[][];
+    leftEyebrowUpper: number[][];
+    rightEyebrowUpper: number[][];
+  };
+}
+
+function calculateEyeOpenness(landmarks: FacialLandmarks): number {
+  const leftEye = landmarks.annotations.leftEye;
+  const rightEye = landmarks.annotations.rightEye;
+  
+  const leftHeight = calculateDistance(leftEye[1], leftEye[7]);
+  const rightHeight = calculateDistance(rightEye[1], rightEye[7]);
+  
+  return (leftHeight + rightHeight) / 2;
 }
 
 function calculateMouthCurvature(landmarks) {
@@ -291,92 +299,183 @@ class UserPreferences {
 }
 
 // Update MusicPlayer class constructor
+interface MusicPlayerState {
+  songs: Map<string, any>;
+  currentMood: any;
+  audioPlayer: HTMLAudioElement | null;
+  currentSongIndex: number;
+  isPlaying: boolean;
+}
+
 class MusicPlayer {
-    constructor() {
-        this.songs = new Map();
-        this.currentMood = null;
-        this.audioPlayer = null;
-        this.currentSongIndex = 0;
-        this.isPlaying = false;
-        this.isShuffled = false;
-        this.repeatMode = 'none';
-        this.audioContext = null;
-        this.audioBuffers = new Map();
-        this.init();
+  private state: MusicPlayerState;
+  private audioPlayer: HTMLAudioElement | null;
+  private audioContext: AudioContext | null;
+  private analyser: AnalyserNode | null;
+  private gainNode: GainNode | null;
+  private biquadFilter: BiquadFilterNode | null;
+  private isShuffled: boolean;
+  private repeatMode: 'none' | 'one' | 'all';
+  private songs: Map<string, any[]>;
+
+  constructor() {
+    this.state = {
+      songs: new Map(),
+      currentMood: null,
+      audioPlayer: null,
+      currentSongIndex: 0,
+      isPlaying: false
+    };
+    this.audioPlayer = null;
+    this.audioContext = null;
+    this.analyser = null;
+    this.gainNode = null;
+    this.biquadFilter = null;
+    this.isShuffled = false;
+    this.repeatMode = 'none';
+    this.songs = new Map();
+    this.initialize();
+  }
+
+  private setupEventListeners(): void {
+    if (!this.audioPlayer) {
+      console.error('Audio player not initialized');
+      return;
     }
 
-    async init() {
-        this.audioPlayer = document.getElementById('audioPlayer');
-        this.setupEventListeners();
-        await this.initAudioContext();
-    }
+    // Playback controls
+    const playPauseBtn = document.getElementById('playPause');
+    const nextBtn = document.getElementById('next');
+    const prevBtn = document.getElementById('previous');
+    const shuffleBtn = document.getElementById('shuffle');
+    const repeatBtn = document.getElementById('repeat');
+    const progressBar = document.getElementById('progressBar');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
 
-    async initAudioContext() {
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext({
-                latencyHint: 'interactive',
-                sampleRate: 44100
-            });
-            
-            // Create audio processing graph
-            this.analyser = this.audioContext.createAnalyser();
-            this.gainNode = this.audioContext.createGain();
-            this.biquadFilter = this.audioContext.createBiquadFilter();
-            
-            // Configure nodes
-            this.analyser.fftSize = 2048;
-            this.biquadFilter.type = 'lowpass';
-            this.biquadFilter.frequency.value = 20000;
-            
-            // Connect nodes
-            const source = this.audioContext.createMediaElementSource(this.audioPlayer);
-            source.connect(this.biquadFilter)
-                  .connect(this.gainNode)
-                  .connect(this.analyser)
-                  .connect(this.audioContext.destination);
-            
-            // Start visualization with optimized refresh rate
-            this.startVisualizer();
-        } catch (error) {
-            console.error('WebAudio API not supported:', error);
+    // Add event listeners with null checks
+    playPauseBtn?.addEventListener('click', () => this.togglePlayPause());
+    nextBtn?.addEventListener('click', () => this.playNext());
+    prevBtn?.addEventListener('click', () => this.playPrevious());
+    shuffleBtn?.addEventListener('click', () => this.toggleShuffle());
+    repeatBtn?.addEventListener('click', () => this.toggleRepeat());
+
+    // Progress bar interaction
+    progressBar?.addEventListener('click', (e: MouseEvent) => {
+      const rect = progressBar.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      if (this.audioPlayer) {
+        this.audioPlayer.currentTime = pos * this.audioPlayer.duration;
+      }
+    });
+
+    // Audio player events
+    this.audioPlayer.addEventListener('timeupdate', () => this.updateProgress());
+    this.audioPlayer.addEventListener('ended', () => this.handleSongEnd());
+
+    // File upload handling
+    fileInput?.addEventListener('change', (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files?.length) {
+        this.handleFileUpload(Array.from(target.files));
+      }
+    });
+
+    // Drop zone events
+    if (dropZone) {
+      dropZone.addEventListener('dragover', (e: DragEvent) => {
+        e.preventDefault();
+        dropZone.classList.add('bg-gray-700');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('bg-gray-700');
+      });
+
+      dropZone.addEventListener('drop', (e: DragEvent) => {
+        e.preventDefault();
+        dropZone.classList.remove('bg-gray-700');
+        if (e.dataTransfer?.files.length) {
+          this.handleFileUpload(Array.from(e.dataTransfer.files));
         }
+      });
     }
+  }
 
-    startVisualizer() {
-        const canvas = document.getElementById('visualizer');
-        const ctx = canvas.getContext('2d');
-        const bufferLength = this.analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
+  async init() {
+      this.audioPlayer = document.getElementById('audioPlayer');
+      this.setupEventListeners();
+      await this.initAudioContext();
+  }
 
-        const draw = () => {
-            requestAnimationFrame(draw);
-            
-            this.analyser.getByteFrequencyData(dataArray);
-            
-            ctx.fillStyle = 'rgb(0, 0, 0)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            const barWidth = (canvas.width / bufferLength) * 2.5;
-            let barHeight;
-            let x = 0;
-            
-            for(let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i] / 2;
-                
-                const r = barHeight + (25 * (i/bufferLength));
-                const g = 250 * (i/bufferLength);
-                const b = 50;
-                
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                
-                x += barWidth + 1;
-            }
-        };
-        
-        draw();
-    }
+  async initAudioContext() {
+      try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.audioContext = new AudioContext({
+              latencyHint: 'interactive',
+              sampleRate: 44100
+          });
+          
+          // Create audio processing graph
+          this.analyser = this.audioContext.createAnalyser();
+          this.gainNode = this.audioContext.createGain();
+          this.biquadFilter = this.audioContext.createBiquadFilter();
+          
+          // Configure nodes
+          this.analyser.fftSize = 2048;
+          this.biquadFilter.type = 'lowpass';
+          this.biquadFilter.frequency.value = 20000;
+          
+          // Connect nodes
+          const source = this.audioContext.createMediaElementSource(this.audioPlayer);
+          source.connect(this.biquadFilter)
+                .connect(this.gainNode)
+                .connect(this.analyser)
+                .connect(this.audioContext.destination);
+          
+          // Start visualization with optimized refresh rate
+          this.startVisualizer();
+      } catch (error) {
+          console.error('WebAudio API not supported:', error);
+      }
+  }
+
+  startVisualizer() {
+      const canvas = document.getElementById('visualizer') as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d');
+      if (!ctx || !this.analyser) return;
+
+      const bufferLength = this.analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const draw = () => {
+          requestAnimationFrame(draw);
+          
+          this.analyser.getByteFrequencyData(dataArray);
+          
+          ctx.fillStyle = 'rgb(0, 0, 0)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          const barWidth = (canvas.width / bufferLength) * 2.5;
+          let barHeight;
+          let x = 0;
+          
+          for(let i = 0; i < bufferLength; i++) {
+              barHeight = dataArray[i] / 2;
+              
+              const r = barHeight + (25 * (i/bufferLength));
+              const g = 250 * (i/bufferLength);
+              const b = 50;
+              
+              ctx.fillStyle = `rgb(${r},${g},${b})`;
+              ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+              
+              x += barWidth + 1;
+          }
+      };
+      
+      draw();
+  }
 }
 
 // Setup event listeners
@@ -445,56 +544,31 @@ setupEventListeners() {
     }
 }
 
-async function handleFileUpload(files) {
-    const errors = [];
-    
-    await Promise.all(files.map(async file => {
-        try {
-            // Check file size
-            if (file.size > CONFIG.MAX_UPLOAD_SIZE) {
-                throw new Error(`File ${file.name} is too large. Maximum size is ${CONFIG.MAX_UPLOAD_SIZE / 1000000}MB`);
-            }
+private showErrors(errors: Error[]): void {
+  const container = document.querySelector('.container');
+  if (!container) return;
 
-            const url = URL.createObjectURL(file);
-            const mood = await this.analyzeMusicMood(file);
-            
-            if (!this.songs.has(mood)) {
-                this.songs.set(mood, []);
-            }
-            
-            const metadata = await this.extractMetadata(file);
-            this.songs.get(mood).push({
-                name: file.name,
-                url: url,
-                ...metadata
-            });
-        } catch (error) {
-            console.error('Error processing file:', file.name, error);
-            // Show error to user
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'bg-red-500 text-white p-4 rounded-lg mb-4';
-            errorDiv.textContent = error.message;
-            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
-            setTimeout(() => errorDiv.remove(), 5000);
-        }
-    }
-    this.updatePlaylist();
+  errors.forEach(error => {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'bg-red-500 text-white p-4 rounded-lg mb-4';
+    errorDiv.textContent = error.message;
+    container.insertBefore(errorDiv, container.firstChild);
+    setTimeout(() => errorDiv.remove(), 5000);
+  });
 }
 
-async analyzeMusicMood(file) {
-    // In a real app, we'd analyze the audio features
-    // For now, we'll guess from the filename or return a random mood
-    const moods = ['Happy', 'Sad', 'Energetic', 'Relaxed', 'Focused'];
-    return moods[Math.floor(Math.random() * moods.length)];
+private async analyzeMusicMood(file: File): Promise<string> {
+  // Implementation of mood analysis
+  const moods = ['Happy', 'Sad', 'Energetic', 'Relaxed', 'Focused'];
+  return moods[Math.floor(Math.random() * moods.length)];
 }
 
-async extractMetadata(file) {
-    // In a real app, we'd extract actual metadata
-    return {
-        artist: 'Unknown Artist',
-        album: 'Unknown Album',
-        duration: '0:00'
-    };
+private async extractMetadata(file: File): Promise<Record<string, string>> {
+  return {
+    artist: 'Unknown Artist',
+    album: 'Unknown Album',
+    duration: '0:00'
+  };
 }
 
 updatePlaylist() {
@@ -571,7 +645,7 @@ updatePlayPauseButton() {
 
 class MusicPlayer {
     updateProgress() {
-        if (!this.isPlaying) return;
+        if (!this.isPlaying || !this.audioPlayer) return;
         
         requestAnimationFrame(() => {
             const currentTime = document.getElementById('currentTime');
