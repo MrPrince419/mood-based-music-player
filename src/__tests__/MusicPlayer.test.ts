@@ -1,10 +1,19 @@
 import { MusicPlayer } from '../MusicPlayer';
+import { Song, PlayerState } from '../types/music';
 
 describe('MusicPlayer', () => {
     let player: MusicPlayer;
+    let mockPlayerState: PlayerState;
 
     beforeEach(() => {
         player = new MusicPlayer();
+        mockPlayerState = {
+            currentSong: null,
+            isPlaying: false,
+            volume: 1,
+            currentTime: 0,
+            duration: 0
+        };
     });
 
     afterEach(() => {

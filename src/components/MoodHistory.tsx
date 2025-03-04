@@ -1,15 +1,17 @@
 import React from 'react';
+import { MoodData } from '../types/music';
 
-const MoodHistory: React.FC = () => {
-  const moodHistory = [
-    // This will be populated from context/state
-  ];
+interface MoodHistoryProps {
+  history: MoodData[];
+  onMoodSelect?: (mood: string) => void;
+}
 
+const MoodHistory: React.FC<MoodHistoryProps> = ({ history, onMoodSelect }) => {
   return (
     <div className="space-y-4">
-      {moodHistory.length > 0 ? (
+      {history.length > 0 ? (
         <div className="space-y-2">
-          {moodHistory.map((mood, index) => (
+          {history.map((mood, index) => (
             <div
               key={index}
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"

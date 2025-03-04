@@ -1,15 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useMusic } from '../context/MusicContext';
-import { createError, ErrorCode, ErrorSeverity, handleError } from '../utils/errorHandling';
-import { checkBrowserSupport } from '../utils/browserCheck';
+import React, { useRef, useEffect, useState } from 'react';
+import { Song, PlayerState } from '../types/music';
+import { createError, ErrorCode, ErrorSeverity } from '../utils/errorHandling';
 
-const Player: React.FC = () => {
+interface PlayerProps {
+  currentSong: Song | null;
+  onPlayStateChange: (isPlaying: boolean) => void;
+  onTimeUpdate: (currentTime: number) => void;
+  onError: (error: Error) => void;
+}
+
+const Player: React.FC<PlayerProps> = ({ 
+  currentSong, 
+  onPlayStateChange, 
+  onTimeUpdate, 
+  onError 
+}) => {
+  const [playerState, setPlayerState] = useState<PlayerState>({
+    currentSong: null,
+    isPlaying: false,
+    volume: 1,
+    currentTime: 0,
+    duration: 0
+  });
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const audioContext = useRef<AudioContext | null>(null);
-  const audioElement = useRef<HTMLAudioElement | null>(null);
-  const { currentSong, isPlaying, setIsPlaying } = useMusic();
+  const { isPlaying, setIsPlaying } = useMusic();
   const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState('0:00');
-  const [duration, setDuration] = useState('0:00');
   const [browserSupported, setBrowserSupported] = useState(true);
   
   // Initialize volume from localStorage
@@ -17,8 +35,8 @@ const Player: React.FC = () => {
     const savedVolume = localStorage.getItem('playerVolume');
     if (savedVolume) {
       setVolume(parseFloat(savedVolume));
-      if (audioElement.current) {
-        audioElement.current.volume = parseFloat(savedVolume);
+      if (audioRef.current) {
+        audioRef.current.volume = parseFloat(savedVolume);
       }
     }
   }, []);
@@ -28,8 +46,8 @@ const Player: React.FC = () => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
     localStorage.setItem('playerVolume', newVolume.toString());
-    if (audioElement.current) {
-      audioElement.current.volume = newVolume;
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
     }
   };
   
@@ -49,7 +67,7 @@ const Player: React.FC = () => {
   
   useEffect(() => {
     // Initialize audio element
-    audioElement.current = new Audio();
+    audioRef.current = new Audio();
     
     const handleError = (e: ErrorEvent) => {
       handleError(createError(
@@ -62,57 +80,57 @@ const Player: React.FC = () => {
       setIsPlaying(false);
     };
   const updateProgress = () => {
-    if (audioElement.current) {
-      const currentProgress = (audioElement.current.currentTime / audioElement.current.duration) * 100;
+    if (audioRef.current) {
+      const currentProgress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
       setProgress(currentProgress || 0);
-      setCurrentTime(formatTime(audioElement.current.currentTime));
-      setDuration(formatTime(audioElement.current.duration));
+      setCurrentTime(formatTime(audioRef.current.currentTime));
+      setDuration(formatTime(audioRef.current.duration));
     }
   };
-  audioElement.current.addEventListener('timeupdate', updateProgress);
-  audioElement.current.addEventListener('error', handleError);
-  audioElement.current.addEventListener('loadedmetadata', () => {
-    if (audioElement.current) {
-      setDuration(formatTime(audioElement.current.duration));
+  audioRef.current.addEventListener('timeupdate', updateProgress);
+  audioRef.current.addEventListener('error', handleError);
+  audioRef.current.addEventListener('loadedmetadata', () => {
+    if (audioRef.current) {
+      setDuration(formatTime(audioRef.current.duration));
     }
   });
   return () => {
-    if (audioElement.current) {
-      audioElement.current.removeEventListener('timeupdate', updateProgress);
-      audioElement.current.removeEventListener('error', handleError);
-      audioElement.current.pause();
-      audioElement.current.src = '';
+    if (audioRef.current) {
+      audioRef.current.removeEventListener('timeupdate', updateProgress);
+      audioRef.current.removeEventListener('error', handleError);
+      audioRef.current.pause();
+      audioRef.current.src = '';
     }
   };
 }, [setIsPlaying]);
   // Update audio source when currentSong changes
   useEffect(() => {
-    if (currentSong && audioElement.current) {
-      audioElement.current.src = currentSong;
+    if (currentSong && audioRef.current) {
+      audioRef.current.src = currentSong;
       if (isPlaying) {
-        audioElement.current.play();
+        audioRef.current.play();
       }
     }
   }, [currentSong]);
   // Handle play/pause state changes
   useEffect(() => {
-    if (audioElement.current) {
+    if (audioRef.current) {
       if (isPlaying) {
-        audioElement.current.play();
+        audioRef.current.play();
       } else {
-        audioElement.current.pause();
+        audioRef.current.pause();
       }
     }
   }, [isPlaying]);
   const [volume, setVolume] = useState(1);
   // Add seek functionality
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audioElement.current) return;
+    if (!audioRef.current) return;
     const bounds = e.currentTarget.getBoundingClientRect();
     const percent = (e.clientX - bounds.left) / bounds.width;
-    const time = percent * audioElement.current.duration;
+    const time = percent * audioRef.current.duration;
     try {
-      audioElement.current.currentTime = time;
+      audioRef.current.currentTime = time;
     } catch (error) {
       handleError(createError(
         'Failed to seek audio',
@@ -126,13 +144,13 @@ const Player: React.FC = () => {
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
-    if (audioElement.current) {
-      audioElement.current.volume = newVolume;
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume;
     }
   };
   // Update play/pause with error handling
   const togglePlay = async () => {
-    if (!audioElement.current || !currentSong) return;
+    if (!audioRef.current || !currentSong) return;
   try {
     if (!audioContext.current) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
